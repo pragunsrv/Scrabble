@@ -13,6 +13,9 @@ class Scrabble:
         self.turns_without_progress = 0
         self.passes = {"Player 1": 0, "Player 2": 0}
         self.dictionary_mode = False
+        self.game_history = []
+        self.undo_stack = []
+        self.redo_stack = []
 
     def create_board(self):
         board = [['' for _ in range(15)] for _ in range(15)]
@@ -78,12 +81,14 @@ class Scrabble:
             print("Invalid word placement.")
             return False
         self.apply_multipliers(word, row, col, direction)
+        self.save_game_state()
         if direction == 'H':
             for i, letter in enumerate(word):
                 if self.board[row][col + i] == '' or self.board[row][col + i] == letter:
                     self.board[row][col + i] = letter
                 else:
                     print("Tile conflict! Choose another placement.")
+                    self.undo_last_move()
                     return False
         elif direction == 'V':
             for i, letter in enumerate(word):
@@ -91,8 +96,11 @@ class Scrabble:
                     self.board[row + i][col] = letter
                 else:
                     print("Tile conflict! Choose another placement.")
+                    self.undo_last_move()
                     return False
         self.remove_tiles_from_player(word)
+        self.undo_stack.append(self.redo_stack)
+        self.redo_stack = []
         return True
 
     def is_valid_placement(self, word, row, col, direction):
@@ -155,10 +163,34 @@ class Scrabble:
 
     def pass_turn(self):
         self.passes[self.current_player] += 1
-        if self.passes["Player 1"] >= 3 and self.passes["Player 2"] >= 3:
-            self.end_game()
-        else:
-            self.switch_player()
+        self.switch_player()
+
+    def undo_last_move(self):
+        if self.undo_stack:
+            self.redo_stack.append(self.undo_stack.pop())
+            last_move = self.undo_stack[-1]
+            self.board = last_move['board']
+            self.player_tiles = last_move['player_tiles']
+            self.scores = last_move['scores']
+            self.current_player = last_move['current_player']
+
+    def redo_last_move(self):
+        if self.redo_stack:
+            last_redo = self.redo_stack.pop()
+            self.undo_stack.append(last_redo)
+            self.board = last_redo['board']
+            self.player_tiles = last_redo['player_tiles']
+            self.scores = last_redo['scores']
+            self.current_player = last_redo['current_player']
+
+    def save_game_state(self):
+        state = {
+            'board': [row[:] for row in self.board],
+            'player_tiles': {k: v[:] for k, v in self.player_tiles.items()},
+            'scores': self.scores.copy(),
+            'current_player': self.current_player
+        }
+        self.undo_stack.append(state)
 
     def end_game(self):
         print("Game over!")
