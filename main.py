@@ -73,6 +73,16 @@ class Scrabble:
         self.custom_rules = {"Double Score on Q": True, "No Proper Nouns": False}
         self.history_log = []
         self.special_tile_usage = {"*": 0}
+        self.challenging_words = ["EXEMPLAR", "QUIZZIFY", "JINXED", "FROSTY", "ZOOLOGICAL", "BLAZING", "DRAGON", "FLAMING", "SPARKLING", "NIGHTMARE"]
+        self.score_multipliers = {"EXEMPLAR": 2, "QUIZZIFY": 3, "JINXED": 2, "FROSTY": 1, "ZOOLOGICAL": 2, "BLAZING": 2, "DRAGON": 3, "FLAMING": 1, "SPARKLING": 2, "NIGHTMARE": 3}
+        self.ai_strategies = {"Aggressive": self.aggressive_strategy, "Defensive": self.defensive_strategy, "Balanced": self.balanced_strategy}
+        self.current_ai_strategy = self.aggressive_strategy
+        self.timed_challenges = {"Player 1": 30, "Player 2": 30}
+        self.challenge_rewards = {"Player 1": 0, "Player 2": 0}
+        self.bonus_rounds = 0
+        self.max_bonus_rounds = 5
+        self.special_events = ["Double Points", "Extra Turn", "Tile Swap", "Bonus Word"]
+        self.event_effects = {"Double Points": self.double_points_effect, "Extra Turn": self.extra_turn_effect, "Tile Swap": self.tile_swap_effect, "Bonus Word": self.bonus_word_effect}
 
     def create_board(self):
         return [['' for _ in range(15)] for _ in range(15)]
@@ -116,18 +126,14 @@ class Scrabble:
         ]
 
     def create_tiles(self):
-        letter_values = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2, 'H': 4, 'I': 1, 'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10}
-        tiles = []
-        for letter, value in letter_values.items():
-            tiles.extend([letter] * (8 if letter in 'EAIONRTLSU' else 1))
-        tiles.extend([' '] * 2)
-        random.shuffle(tiles)
-        return tiles
+        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        tile_bag = [letter for letter in letters for _ in range(12)]
+        return tile_bag
 
     def load_word_list(self):
         return set([
             "CAT", "DOG", "FISH", "BIRD", "BEAR", "PANTHER", "LION", "TIGER", "ELEPHANT", "GIRAFFE", "ZEBRA", "HIPPO", "KANGAROO", "KOALA", "WOLF",
-            "PYTHON", "JAVA", "SCRABBLE", "DEVELOPER", "GITHUB", "PROGRAMMING", "EXAMPLE", "COMPUTERIZED", "PYTHONIC", "REPOSITORY", "OCEAN", "MOUNTAIN", 
+            "PYTHON", "JAVA", "SCRABBLE", "DEVELOPER", "GITHUB", "PROGRAMMING", "EXAMPLE", "COMPUTERIZED", "PYTHONIC", "REPOSITORY", "OCEAN", "MOUNTAIN",
             "FOREST", "DESERT", "ISLAND", "JUNGLE", "PLAIN", "RIVER", "LAKE", "POND", "VALLEY", "CAVE", "FOSSIL", "DINO", "ASTEROID", "GALAXY", "UNIVERSE"
         ])
 
@@ -166,17 +172,17 @@ class Scrabble:
             for i, letter in enumerate(word):
                 letter_score = letter_values.get(letter, 0)
                 word_score += letter_score
-                if self.multiplier_board[row][col + i] == 'DW':
+                if self.dynamic_multiplier_board[row][col + i] == 'DW':
                     word_multiplier *= 2
-                elif self.multiplier_board[row][col + i] == 'TW':
+                elif self.dynamic_multiplier_board[row][col + i] == 'TW':
                     word_multiplier *= 3
         elif direction == 'V':
             for i, letter in enumerate(word):
                 letter_score = letter_values.get(letter, 0)
                 word_score += letter_score
-                if self.multiplier_board[row + i][col] == 'DW':
+                if self.dynamic_multiplier_board[row + i][col] == 'DW':
                     word_multiplier *= 2
-                elif self.multiplier_board[row + i][col] == 'TW':
+                elif self.dynamic_multiplier_board[row + i][col] == 'TW':
                     word_multiplier *= 3
         self.scores[self.current_player] += word_score * word_multiplier
 
@@ -228,7 +234,110 @@ class Scrabble:
             self.power_ups[self.current_player].remove(power_up)
         else:
             print("Power-up not available.")
+        self.check_end_of_tournament()
+    def check_passes(self):
+        if all(pass_count >= 3 for pass_count in self.passes.values()):
+            print("Game over due to multiple passes.")
+            self.end_game()
 
+    def is_game_over(self):
+        if not any(self.tiles):
+            if all(len(tiles) == 0 for tiles in self.player_tiles.values()):
+                return True
+        return False
+
+    def end_game(self):
+        print("Game over!")
+        winner = max(self.scores, key=self.scores.get)
+        print(f"The winner is {winner} with a score of {self.scores[winner]}")
+
+    def auto_save_game(self):
+        if self.auto_save:
+            with open(self.save_file, "w") as file:
+                file.write(str(self.game_history))
+
+    def load_game(self):
+        try:
+            with open(self.save_file, "r") as file:
+                self.game_history = eval(file.read())
+                self.board, self.player_tiles, self.scores, self.current_player, self.tiles = self.game_history[-1]
+        except FileNotFoundError:
+            print("No save file found.")
+
+    def handle_tournament(self):
+        if self.tournament_mode:
+            pass
+    def save_game_state(self):
+        self.game_history.append((
+            [row.copy() for row in self.board],
+            self.player_tiles.copy(),
+            self.scores.copy(),
+            self.current_player,
+            self.tiles.copy()
+        ))
+        if len(self.game_history) > 10:
+            self.game_history.pop(0)
+
+    def undo_last_move(self):
+        if self.game_history:
+            state = self.game_history.pop()
+            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
+            self.switch_player()
+        else:
+            print("No moves to undo.")
+
+    def redo_last_move(self):
+        if self.redo_stack:
+            state = self.redo_stack.pop()
+            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
+            self.switch_player()
+        else:
+            print("No moves to redo.")
+
+    def use_power_up(self, power_up):
+        if power_up in self.power_ups[self.current_player]:
+            self.power_ups[self.current_player].remove(power_up)
+        else:
+            print("Power-up not available.")
+
+    def challenge_word(self, word):
+        if word in self.word_list:
+            print("Challenge unsuccessful.")
+            self.challenges[self.current_player] -= 1
+        else:
+            print("Challenge successful.")
+            self.scores[self.current_player] += 20
+            self.challenge_success[self.current_player] += 1
+
+    def apply_difficulty(self):
+        if self.difficulty == "Hard":
+            pass
+        elif self.difficulty == "Easy":
+            pass
+
+    def adjust_time_limits(self):
+        if self.timed_mode:
+            current_time = time.time()
+            for player, limit in self.time_limits.items():
+                self.remaining_time[player] -= (current_time - self.round_timer[player])
+                self.round_timer[player] = current_time
+                if self.remaining_time[player] <= 0:
+                    print(f"{player} ran out of time!")
+                    self.end_game()
+    def switch_player(self):
+        self.current_player = "Player 1" if self.current_player == "Player 2" else "Player 2"
+
+    def manage_special_tiles(self):
+        pass
+
+    def manage_tile_replacement(self):
+        pass
+
+    def provide_clues(self):
+        pass
+
+    def handle_restricted_words(self):
+        pass
     def challenge_word(self, word):
         if word in self.word_list:
             print("Challenge unsuccessful.")
@@ -311,10 +420,13 @@ class Scrabble:
         self.adjust_time_limits()
 
     def apply_special_tiles(self, word, row, col, direction):
-        pass
+        for tile in self.special_tiles:
+            if self.board[row][col] == tile:
+                self.scores[self.current_player] += self.special_tile_effects[tile]
 
     def add_word_restrictions(self):
-        pass
+        if self.word_restrictions:
+            pass
 
     def manage_swap(self):
         if self.swap_count[self.current_player] < self.swap_limit:
@@ -328,14 +440,28 @@ class Scrabble:
             self.streak[self.current_player] = 0
 
     def update_leaderboard(self):
-        self.leaderboard.append((self.current_player, self.scores[self.current_player]))
-        self.leaderboard = sorted(self.leaderboard, key=lambda x: x[1], reverse=True)
+        self.leaderboard = sorted(self.scores.items(), key=lambda x: x[1], reverse=True)
 
-    def check_end_of_tournament(self):
-        if self.tournament_mode:
-            if self.rounds_played >= self.max_rounds:
-                self.end_game()
-                print("Tournament ended.")
+    def aggressive_strategy(self, board, tiles):
+        return "Aggressive strategy not implemented."
+
+    def defensive_strategy(self, board, tiles):
+        return "Defensive strategy not implemented."
+
+    def balanced_strategy(self, board, tiles):
+        return "Balanced strategy not implemented."
+
+    def double_points_effect(self):
+        pass
+
+    def extra_turn_effect(self):
+        pass
+
+    def tile_swap_effect(self):
+        pass
+
+    def bonus_word_effect(self):
+        pass
 
     def run(self):
         self.load_game()
@@ -445,7 +571,6 @@ class Scrabble:
 
     def handle_restricted_words(self):
         pass
-
 if __name__ == "__main__":
     game = Scrabble()
     game.run()
