@@ -45,13 +45,23 @@ class Scrabble:
         self.remaining_time = {"Player 1": 300, "Player 2": 300}
         self.special_tiles = ["*"]
         self.special_tile_positions = []
+        self.special_tile_effects = {"*": "Double letter score"}
+        self.tile_replacement = {"Player 1": [], "Player 2": []}
+        self.tile_bank = {}
+        self.clues = {"Player 1": [], "Player 2": []}
+        self.clue_timer = {"Player 1": 10, "Player 2": 10}
+        self.restricted_words = set()
+        self.dynamic_multiplier_board = self.create_dynamic_multiplier_board()
+        self.custom_tournaments = []
+        self.custom_difficulties = {"Normal": 1, "Hard": 2, "Extreme": 3}
+        self.current_difficulty = 1
+        self.challenge_count = {"Player 1": 0, "Player 2": 0}
 
     def create_board(self):
-        board = [['' for _ in range(15)] for _ in range(15)]
-        return board
+        return [['' for _ in range(15)] for _ in range(15)]
 
     def create_multiplier_board(self):
-        multiplier_board = [
+        return [
             ["TW", "", "", "DL", "", "", "", "TW", "", "", "", "DL", "", "", "TW"],
             ["", "DW", "", "", "", "TL", "", "", "", "TL", "", "", "", "DW", ""],
             ["", "", "DW", "", "", "", "DL", "", "DL", "", "", "", "DW", "", ""],
@@ -68,7 +78,25 @@ class Scrabble:
             ["", "DW", "", "", "", "TL", "", "", "", "TL", "", "", "", "DW", ""],
             ["TW", "", "", "DL", "", "", "", "TW", "", "", "", "DL", "", "", "TW"]
         ]
-        return multiplier_board
+
+    def create_dynamic_multiplier_board(self):
+        return [
+            ["TW", "", "", "DL", "", "", "", "TW", "", "", "", "DL", "", "", "TW"],
+            ["", "DW", "", "", "", "TL", "", "", "", "TL", "", "", "", "DW", ""],
+            ["", "", "DW", "", "", "", "DL", "", "DL", "", "", "", "DW", "", ""],
+            ["DL", "", "", "DW", "", "", "", "DL", "", "", "", "DW", "", "", "DL"],
+            ["", "", "", "", "DW", "", "", "", "", "", "DW", "", "", "", ""],
+            ["", "TL", "", "", "", "TL", "", "", "", "TL", "", "", "", "TL", ""],
+            ["", "", "DL", "", "", "", "DL", "", "DL", "", "", "", "DL", "", ""],
+            ["TW", "", "", "DL", "", "", "", "DW", "", "", "", "DL", "", "", "TW"],
+            ["", "", "DL", "", "", "", "DL", "", "DL", "", "", "", "DL", "", ""],
+            ["", "TL", "", "", "", "TL", "", "", "", "TL", "", "", "", "TL", ""],
+            ["", "", "", "", "DW", "", "", "", "", "", "DW", "", "", "", ""],
+            ["DL", "", "", "DW", "", "", "", "DL", "", "", "", "DW", "", "", "DL"],
+            ["", "", "DW", "", "", "", "DL", "", "DL", "", "", "", "DW", "", ""],
+            ["", "DW", "", "", "", "TL", "", "", "", "TL", "", "", "", "DW", ""],
+            ["TW", "", "", "DL", "", "", "", "TW", "", "", "", "DL", "", "", "TW"]
+        ]
 
     def create_tiles(self):
         letter_values = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2, 'H': 4, 'I': 1, 'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10}
@@ -100,66 +128,36 @@ class Scrabble:
             print(' '.join([cell if cell else '.' for cell in row]))
 
     def display_tiles(self):
-        print(f"{self.current_player}'s tiles:", self.player_tiles[self.current_player])
-
-    def switch_player(self):
-        self.current_player = "Player 2" if self.current_player == "Player 1" else "Player 1"
+        for player, tiles in self.player_tiles.items():
+            print(f"{player}'s Tiles: {' '.join(tiles)}")
 
     def place_word(self, word, row, col, direction):
-        if not self.is_valid_placement(word, row, col, direction):
-            print("Invalid word placement.")
+        if direction == 'H':
+            if col + len(word) > len(self.board[0]):
+                return False
+            if any(self.board[row][col + i] not in ('', letter) for i, letter in enumerate(word)):
+                return False
+            for i, letter in enumerate(word):
+                self.board[row][col + i] = letter
+        elif direction == 'V':
+            if row + len(word) > len(self.board):
+                return False
+            if any(self.board[row + i][col] not in ('', letter) for i, letter in enumerate(word)):
+                return False
+            for i, letter in enumerate(word):
+                self.board[row + i][col] = letter
+        else:
             return False
-        self.apply_multipliers(word, row, col, direction)
-        self.save_game_state()
-        if direction == 'H':
-            for i, letter in enumerate(word):
-                if self.board[row][col + i] == '' or self.board[row][col + i] == letter:
-                    self.board[row][col + i] = letter
-                else:
-                    print("Tile conflict! Choose another placement.")
-                    self.undo_last_move()
-                    return False
-        elif direction == 'V':
-            for i, letter in enumerate(word):
-                if self.board[row + i][col] == '' or self.board[row + i][col] == letter:
-                    self.board[row + i][col] = letter
-                else:
-                    print("Tile conflict! Choose another placement.")
-                    self.undo_last_move()
-                    return False
-        self.remove_tiles_from_player(word)
-        self.undo_stack.append(self.redo_stack)
-        self.redo_stack = []
         return True
 
-    def is_valid_placement(self, word, row, col, direction):
-        if direction == 'H':
-            if col + len(word) > 15:
-                return False
-            for i in range(len(word)):
-                if self.board[row][col + i] and self.board[row][col + i] != word[i]:
-                    return False
-        elif direction == 'V':
-            if row + len(word) > 15:
-                return False
-            for i in range(len(word)):
-                if self.board[row + i][col] and self.board[row + i][col] != word[i]:
-                    return False
-        return True
-
-    def apply_multipliers(self, word, row, col, direction):
+    def calculate_score(self, word, row, col, direction):
+        letter_values = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2, 'H': 4, 'I': 1, 'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10}
         word_score = 0
         word_multiplier = 1
-        letter_values = {'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2, 'H': 4, 'I': 1, 'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10}
         if direction == 'H':
             for i, letter in enumerate(word):
                 letter_score = letter_values.get(letter, 0)
-                if self.multiplier_board[row][col + i] == 'DL':
-                    word_score += letter_score * 2
-                elif self.multiplier_board[row][col + i] == 'TL':
-                    word_score += letter_score * 3
-                else:
-                    word_score += letter_score
+                word_score += letter_score
                 if self.multiplier_board[row][col + i] == 'DW':
                     word_multiplier *= 2
                 elif self.multiplier_board[row][col + i] == 'TW':
@@ -167,12 +165,7 @@ class Scrabble:
         elif direction == 'V':
             for i, letter in enumerate(word):
                 letter_score = letter_values.get(letter, 0)
-                if self.multiplier_board[row + i][col] == 'DL':
-                    word_score += letter_score * 2
-                elif self.multiplier_board[row + i][col] == 'TL':
-                    word_score += letter_score * 3
-                else:
-                    word_score += letter_score
+                word_score += letter_score
                 if self.multiplier_board[row + i][col] == 'DW':
                     word_multiplier *= 2
                 elif self.multiplier_board[row + i][col] == 'TW':
@@ -184,7 +177,6 @@ class Scrabble:
             if letter in self.player_tiles[self.current_player]:
                 self.player_tiles[self.current_player].remove(letter)
             else:
-                print(f"Tile {letter} not found in player tiles.")
                 self.undo_last_move()
                 return False
         self.draw_tiles(self.current_player)
@@ -220,7 +212,6 @@ class Scrabble:
     def use_power_up(self, power_up):
         if power_up in self.power_ups[self.current_player]:
             self.power_ups[self.current_player].remove(power_up)
-            print(f"{power_up} used.")
         else:
             print("Power-up not available.")
 
@@ -235,10 +226,8 @@ class Scrabble:
 
     def apply_difficulty(self):
         if self.difficulty == "Hard":
-            # Apply harder rules
             pass
         elif self.difficulty == "Easy":
-            # Apply easier rules
             pass
 
     def start_game(self):
@@ -251,6 +240,7 @@ class Scrabble:
             col = int(input("Enter the column: "))
             direction = input("Enter direction (H/V): ").upper()
             if self.place_word(word, row, col, direction):
+                self.calculate_score(word, row, col, direction)
                 print(f"{self.current_player} placed {word} at ({row}, {col})")
             self.switch_player()
             self.turns_without_progress += 1
@@ -288,7 +278,6 @@ class Scrabble:
 
     def handle_tournament(self):
         if self.tournament_mode:
-            # Tournament logic
             pass
 
     def adjust_time_limits(self):
@@ -308,16 +297,13 @@ class Scrabble:
         self.adjust_time_limits()
 
     def apply_special_tiles(self, word, row, col, direction):
-        # Apply special tiles logic
         pass
 
     def add_word_restrictions(self):
-        # Add logic for word restrictions
         pass
 
     def manage_swap(self):
         if self.swap_count[self.current_player] < self.swap_limit:
-            # Swap logic
             pass
         else:
             print("Swap limit reached.")
