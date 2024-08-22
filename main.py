@@ -11,6 +11,8 @@ class Scrabble:
         self.current_player = "Player 1"
         self.multiplier_board = self.create_multiplier_board()
         self.turns_without_progress = 0
+        self.passes = {"Player 1": 0, "Player 2": 0}
+        self.dictionary_mode = False
 
     def create_board(self):
         board = [['' for _ in range(15)] for _ in range(15)]
@@ -41,6 +43,7 @@ class Scrabble:
         tiles = []
         for letter, value in letter_values.items():
             tiles.extend([letter] * (8 if letter in 'EAIONRTLSU' else 1))
+        tiles.extend([' '] * 2)  # Add blank tiles
         random.shuffle(tiles)
         return tiles
 
@@ -48,7 +51,9 @@ class Scrabble:
         return set([
             "CAT", "DOG", "FISH", "BIRD", "FROG", "HOUSE", "COMPUTER", "PYTHON", "JAZZ", "QUIZ",
             "XYLOPHONE", "ZEBRA", "GIRAFFE", "ELEPHANT", "TIGER", "LION", "MONKEY", "KANGAROO",
-            "DOLPHIN", "SHARK", "WHALE", "HIPPOPOTAMUS", "RHINOCEROS", "CROCODILE", "ALLIGATOR"
+            "DOLPHIN", "SHARK", "WHALE", "HIPPOPOTAMUS", "RHINOCEROS", "CROCODILE", "ALLIGATOR",
+            "DINGO", "KOALA", "WOMBAT", "CASSOWARY", "EMU", "PLATYPUS", "EAGLE", "HAWK", "CONDOR",
+            "CHEETAH", "LEOPARD", "PANTHER", "JAGUAR", "HYENA", "CAPE", "ANTHILL", "NIGHTINGALE"
         ])
 
     def draw_tiles(self, player):
@@ -75,10 +80,19 @@ class Scrabble:
         self.apply_multipliers(word, row, col, direction)
         if direction == 'H':
             for i, letter in enumerate(word):
-                self.board[row][col + i] = letter
+                if self.board[row][col + i] == '' or self.board[row][col + i] == letter:
+                    self.board[row][col + i] = letter
+                else:
+                    print("Tile conflict! Choose another placement.")
+                    return False
         elif direction == 'V':
             for i, letter in enumerate(word):
-                self.board[row + i][col] = letter
+                if self.board[row + i][col] == '' or self.board[row + i][col] == letter:
+                    self.board[row + i][col] = letter
+                else:
+                    print("Tile conflict! Choose another placement.")
+                    return False
+        self.remove_tiles_from_player(word)
         return True
 
     def is_valid_placement(self, word, row, col, direction):
@@ -122,7 +136,15 @@ class Scrabble:
         return self.scores[self.current_player]
 
     def check_word(self, word):
+        if self.dictionary_mode:
+            print("Checking word in extended dictionary...")
+            return word in self.word_list
         return word in self.word_list
+
+    def remove_tiles_from_player(self, word):
+        for letter in word:
+            if letter in self.player_tiles[self.current_player]:
+                self.player_tiles[self.current_player].remove(letter)
 
     def exchange_tiles(self):
         for _ in range(len(self.player_tiles[self.current_player])):
@@ -131,47 +153,49 @@ class Scrabble:
                 self.player_tiles[self.current_player].append(self.tiles.pop())
         random.shuffle(self.tiles)
 
-    def end_turn(self):
-        if self.turns_without_progress >= 3:
+    def pass_turn(self):
+        self.passes[self.current_player] += 1
+        if self.passes["Player 1"] >= 3 and self.passes["Player 2"] >= 3:
             self.end_game()
-            return
-        self.switch_player()
-        self.draw_tiles(self.current_player)
+        else:
+            self.switch_player()
 
     def end_game(self):
         print("Game over!")
-        print(f"Final scores: {self.scores}")
-        exit()
+        if self.scores["Player 1"] > self.scores["Player 2"]:
+            print("Player 1 wins!")
+        elif self.scores["Player 1"] < self.scores["Player 2"]:
+            print("Player 2 wins!")
+        else:
+            print("It's a tie!")
+        self.display_scores()
+
+    def display_scores(self):
+        print("Final Scores:")
+        print("Player 1:", self.scores["Player 1"])
+        print("Player 2:", self.scores["Player 2"])
 
     def play(self):
-        self.draw_tiles(self.current_player)
         while True:
             self.display_board()
             self.display_tiles()
-            choice = input(f"{self.current_player}, do you want to (P)lay a word, (E)xchange tiles, or (Q)uit? ").upper()
-            if choice == 'P':
-                word = input("Enter word to place: ").upper()
-                if not self.check_word(word):
-                    print("Word not in dictionary.")
-                    self.turns_without_progress += 1
-                    continue
-                row = int(input("Enter row: "))
-                col = int(input("Enter column: "))
-                direction = input("Enter direction (H/V): ").upper()
-                if self.place_word(word, row, col, direction):
-                    print(f"Word score: {self.update_score(word)}")
-                    self.turns_without_progress = 0
-                    self.end_turn()
-            elif choice == 'E':
+            print(f"{self.current_player}'s turn.")
+            word = input("Enter a word (or 'pass', 'exchange', 'quit'): ").upper()
+            if word == 'PASS':
+                self.pass_turn()
+            elif word == 'EXCHANGE':
                 self.exchange_tiles()
-                self.turns_without_progress += 1
-                self.end_turn()
-            elif choice == 'Q':
+            elif word == 'QUIT':
                 self.end_game()
+                break
+            elif self.check_word(word):
+                direction = input("Enter direction (H for horizontal, V for vertical): ").upper()
+                row = int(input("Enter row (0-14): "))
+                col = int(input("Enter column (0-14): "))
+                if self.place_word(word, row, col, direction):
+                    self.scores[self.current_player] = self.update_score(word)
+                    self.switch_player()
+                else:
+                    print("Invalid placement, try again.")
             else:
-                print("Invalid choice.")
-            if not self.tiles:
-                self.end_game()
-
-game = Scrabble()
-game.play()
+                print("Invalid word, try again.")
