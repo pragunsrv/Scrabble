@@ -16,6 +16,13 @@ class Scrabble:
         self.game_history = []
         self.undo_stack = []
         self.redo_stack = []
+        self.power_ups = {"Player 1": [], "Player 2": []}
+        self.inventories = {"Player 1": [], "Player 2": []}
+        self.challenges = {"Player 1": 3, "Player 2": 3}
+        self.challenge_success = {"Player 1": 0, "Player 2": 0}
+        self.time_limits = {"Player 1": 60, "Player 2": 60}  # 60 seconds per turn
+        self.word_bonuses = {"Player 1": 0, "Player 2": 0}
+        self.used_tiles = {"Player 1": [], "Player 2": []}
 
     def create_board(self):
         board = [['' for _ in range(15)] for _ in range(15)]
@@ -140,30 +147,37 @@ class Scrabble:
         word_score *= word_multiplier
         self.scores[self.current_player] += word_score
 
-    def update_score(self, word):
-        return self.scores[self.current_player]
-
-    def check_word(self, word):
-        if self.dictionary_mode:
-            print("Checking word in extended dictionary...")
-            return word in self.word_list
-        return word in self.word_list
-
     def remove_tiles_from_player(self, word):
         for letter in word:
             if letter in self.player_tiles[self.current_player]:
                 self.player_tiles[self.current_player].remove(letter)
+            else:
+                print("Tile not in player's possession.")
+                return False
+        return True
+
+    def check_word(self, word):
+        return word in self.word_list
 
     def exchange_tiles(self):
-        for _ in range(len(self.player_tiles[self.current_player])):
-            if self.tiles:
-                self.tiles.append(self.player_tiles[self.current_player].pop(0))
-                self.player_tiles[self.current_player].append(self.tiles.pop())
-        random.shuffle(self.tiles)
+        tiles_to_exchange = input("Enter the letters to exchange: ").upper()
+        if all(tile in self.player_tiles[self.current_player] for tile in tiles_to_exchange):
+            self.save_game_state()
+            for tile in tiles_to_exchange:
+                self.tiles.append(tile)
+                self.player_tiles[self.current_player].remove(tile)
+            random.shuffle(self.tiles)
+            self.draw_tiles(self.current_player)
+            self.switch_player()
+        else:
+            print("You don't have these tiles.")
 
     def pass_turn(self):
         self.passes[self.current_player] += 1
-        self.switch_player()
+        if self.passes[self.current_player] >= 2:
+            self.end_game()
+        else:
+            self.switch_player()
 
     def undo_last_move(self):
         if self.undo_stack:
@@ -231,3 +245,52 @@ class Scrabble:
                     print("Invalid placement, try again.")
             else:
                 print("Invalid word, try again.")
+
+    def challenge_word(self):
+        challenged_word = input(f"{self.current_player} is challenging the last word played. Enter the word: ").upper()
+        if challenged_word in self.word_list:
+            print("Challenge successful!")
+            self.challenge_success[self.current_player] += 1
+        else:
+            print("Challenge failed.")
+            self.challenges[self.current_player] -= 1
+
+    def add_power_up(self, player, power_up):
+        self.power_ups[player].append(power_up)
+
+    def use_power_up(self, player, power_up):
+        if power_up in self.power_ups[player]:
+            if power_up == "DOUBLE_SCORE":
+                self.scores[player] *= 2
+            elif power_up == "EXTRA_TURN":
+                self.current_player = player
+            self.power_ups[player].remove(power_up)
+        else:
+            print(f"{player} does not have this power-up.")
+
+    def check_tile_restrictions(self, word, row, col, direction):
+        restricted_tiles = self.used_tiles[self.current_player]
+        for letter in word:
+            if letter in restricted_tiles:
+                print(f"{letter} cannot be used again in this game.")
+                return False
+        return True
+
+    def enforce_time_limit(self, player):
+        import time
+        start_time = time.time()
+        elapsed_time = 0
+        while elapsed_time < self.time_limits[player]:
+            elapsed_time = time.time() - start_time
+            remaining_time = self.time_limits[player] - elapsed_time
+            print(f"Time left: {remaining_time:.2f} seconds")
+            time.sleep(1)
+        print("Time's up!")
+
+    def trade_inventory_item(self, player, item, trade_with_player):
+        if item in self.inventories[player]:
+            self.inventories[player].remove(item)
+            self.inventories[trade_with_player].append(item)
+            print(f"{player} traded {item} with {trade_with_player}.")
+        else:
+            print(f"{player} does not have this item.")
