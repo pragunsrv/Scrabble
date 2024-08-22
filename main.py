@@ -1,6 +1,7 @@
 import random
 import string
 import time
+import json
 
 class Scrabble:
     def __init__(self):
@@ -83,6 +84,15 @@ class Scrabble:
         self.max_bonus_rounds = 5
         self.special_events = ["Double Points", "Extra Turn", "Tile Swap", "Bonus Word"]
         self.event_effects = {"Double Points": self.double_points_effect, "Extra Turn": self.extra_turn_effect, "Tile Swap": self.tile_swap_effect, "Bonus Word": self.bonus_word_effect}
+        self.advanced_ai_features = {"Learning": True, "Adapting": True}
+        self.ai_learning_data = {"Player 1": [], "Player 2": []}
+        self.tournament_rules = {"Round Robin": True, "Knockout": False}
+        self.current_tournament_mode = "Round Robin"
+        self.bonus_point_thresholds = {"Easy": 10, "Medium": 20, "Hard": 30}
+        self.current_bonus_threshold = 10
+        self.tournament_results = {"Player 1": [], "Player 2": []}
+        self.difficulty_settings = {"Easy": {"Tile Value Multiplier": 0.5}, "Normal": {"Tile Value Multiplier": 1}, "Hard": {"Tile Value Multiplier": 1.5}}
+        self.current_difficulty_settings = {"Tile Value Multiplier": 1}
 
     def create_board(self):
         return [['' for _ in range(15)] for _ in range(15)]
@@ -212,259 +222,6 @@ class Scrabble:
         ))
         if len(self.game_history) > 10:
             self.game_history.pop(0)
-
-    def undo_last_move(self):
-        if self.game_history:
-            state = self.game_history.pop()
-            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
-            self.switch_player()
-        else:
-            print("No moves to undo.")
-
-    def redo_last_move(self):
-        if self.redo_stack:
-            state = self.redo_stack.pop()
-            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
-            self.switch_player()
-        else:
-            print("No moves to redo.")
-
-    def use_power_up(self, power_up):
-        if power_up in self.power_ups[self.current_player]:
-            self.power_ups[self.current_player].remove(power_up)
-        else:
-            print("Power-up not available.")
-        self.check_end_of_tournament()
-    def check_passes(self):
-        if all(pass_count >= 3 for pass_count in self.passes.values()):
-            print("Game over due to multiple passes.")
-            self.end_game()
-
-    def is_game_over(self):
-        if not any(self.tiles):
-            if all(len(tiles) == 0 for tiles in self.player_tiles.values()):
-                return True
-        return False
-
-    def end_game(self):
-        print("Game over!")
-        winner = max(self.scores, key=self.scores.get)
-        print(f"The winner is {winner} with a score of {self.scores[winner]}")
-
-    def auto_save_game(self):
-        if self.auto_save:
-            with open(self.save_file, "w") as file:
-                file.write(str(self.game_history))
-
-    def load_game(self):
-        try:
-            with open(self.save_file, "r") as file:
-                self.game_history = eval(file.read())
-                self.board, self.player_tiles, self.scores, self.current_player, self.tiles = self.game_history[-1]
-        except FileNotFoundError:
-            print("No save file found.")
-
-    def handle_tournament(self):
-        if self.tournament_mode:
-            pass
-    def save_game_state(self):
-        self.game_history.append((
-            [row.copy() for row in self.board],
-            self.player_tiles.copy(),
-            self.scores.copy(),
-            self.current_player,
-            self.tiles.copy()
-        ))
-        if len(self.game_history) > 10:
-            self.game_history.pop(0)
-
-    def undo_last_move(self):
-        if self.game_history:
-            state = self.game_history.pop()
-            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
-            self.switch_player()
-        else:
-            print("No moves to undo.")
-
-    def redo_last_move(self):
-        if self.redo_stack:
-            state = self.redo_stack.pop()
-            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
-            self.switch_player()
-        else:
-            print("No moves to redo.")
-
-    def use_power_up(self, power_up):
-        if power_up in self.power_ups[self.current_player]:
-            self.power_ups[self.current_player].remove(power_up)
-        else:
-            print("Power-up not available.")
-
-    def challenge_word(self, word):
-        if word in self.word_list:
-            print("Challenge unsuccessful.")
-            self.challenges[self.current_player] -= 1
-        else:
-            print("Challenge successful.")
-            self.scores[self.current_player] += 20
-            self.challenge_success[self.current_player] += 1
-
-    def apply_difficulty(self):
-        if self.difficulty == "Hard":
-            pass
-        elif self.difficulty == "Easy":
-            pass
-
-    def adjust_time_limits(self):
-        if self.timed_mode:
-            current_time = time.time()
-            for player, limit in self.time_limits.items():
-                self.remaining_time[player] -= (current_time - self.round_timer[player])
-                self.round_timer[player] = current_time
-                if self.remaining_time[player] <= 0:
-                    print(f"{player} ran out of time!")
-                    self.end_game()
-    def switch_player(self):
-        self.current_player = "Player 1" if self.current_player == "Player 2" else "Player 2"
-
-    def manage_special_tiles(self):
-        pass
-
-    def manage_tile_replacement(self):
-        pass
-
-    def provide_clues(self):
-        pass
-
-    def handle_restricted_words(self):
-        pass
-    def challenge_word(self, word):
-        if word in self.word_list:
-            print("Challenge unsuccessful.")
-            self.challenges[self.current_player] -= 1
-        else:
-            print("Challenge successful.")
-            self.scores[self.current_player] += 20
-            self.challenge_success[self.current_player] += 1
-
-    def apply_difficulty(self):
-        if self.difficulty == "Hard":
-            pass
-        elif self.difficulty == "Easy":
-            pass
-
-    def start_game(self):
-        print("Starting game...")
-        while not self.is_game_over():
-            self.display_board()
-            self.display_tiles()
-            word = input(f"{self.current_player}, enter your word: ").upper()
-            row = int(input("Enter the row: "))
-            col = int(input("Enter the column: "))
-            direction = input("Enter direction (H/V): ").upper()
-            if self.place_word(word, row, col, direction):
-                self.calculate_score(word, row, col, direction)
-                print(f"{self.current_player} placed {word} at ({row}, {col})")
-            self.switch_player()
-            self.turns_without_progress += 1
-            self.check_passes()
-            self.apply_difficulty()
-
-    def check_passes(self):
-        if all(pass_count >= 3 for pass_count in self.passes.values()):
-            print("Game over due to multiple passes.")
-            self.end_game()
-
-    def is_game_over(self):
-        if not any(self.tiles):
-            if all(len(tiles) == 0 for tiles in self.player_tiles.values()):
-                return True
-        return False
-
-    def end_game(self):
-        print("Game over!")
-        winner = max(self.scores, key=self.scores.get)
-        print(f"The winner is {winner} with a score of {self.scores[winner]}")
-
-    def auto_save_game(self):
-        if self.auto_save:
-            with open(self.save_file, "w") as file:
-                file.write(str(self.game_history))
-
-    def load_game(self):
-        try:
-            with open(self.save_file, "r") as file:
-                self.game_history = eval(file.read())
-                self.board, self.player_tiles, self.scores, self.current_player, self.tiles = self.game_history[-1]
-        except FileNotFoundError:
-            print("No save file found.")
-
-    def handle_tournament(self):
-        if self.tournament_mode:
-            pass
-
-    def adjust_time_limits(self):
-        if self.timed_mode:
-            current_time = time.time()
-            for player, limit in self.time_limits.items():
-                self.remaining_time[player] -= (current_time - self.round_timer[player])
-                self.round_timer[player] = current_time
-                if self.remaining_time[player] <= 0:
-                    print(f"{player} ran out of time!")
-                    self.end_game()
-
-    def play_turn(self):
-        self.start_game()
-        self.handle_tournament()
-        self.auto_save_game()
-        self.adjust_time_limits()
-
-    def apply_special_tiles(self, word, row, col, direction):
-        for tile in self.special_tiles:
-            if self.board[row][col] == tile:
-                self.scores[self.current_player] += self.special_tile_effects[tile]
-
-    def add_word_restrictions(self):
-        if self.word_restrictions:
-            pass
-
-    def manage_swap(self):
-        if self.swap_count[self.current_player] < self.swap_limit:
-            pass
-        else:
-            print("Swap limit reached.")
-
-    def manage_streaks(self):
-        if self.streak[self.current_player] >= self.bonus_streak_threshold:
-            self.scores[self.current_player] += self.bonus_points
-            self.streak[self.current_player] = 0
-
-    def update_leaderboard(self):
-        self.leaderboard = sorted(self.scores.items(), key=lambda x: x[1], reverse=True)
-
-    def aggressive_strategy(self, board, tiles):
-        return "Aggressive strategy not implemented."
-
-    def defensive_strategy(self, board, tiles):
-        return "Defensive strategy not implemented."
-
-    def balanced_strategy(self, board, tiles):
-        return "Balanced strategy not implemented."
-
-    def double_points_effect(self):
-        pass
-
-    def extra_turn_effect(self):
-        pass
-
-    def tile_swap_effect(self):
-        pass
-
-    def bonus_word_effect(self):
-        pass
-
-    def run(self):
-        self.load_game()
         self.play_turn()
         self.update_leaderboard()
         self.check_end_of_tournament()
@@ -571,6 +328,132 @@ class Scrabble:
 
     def handle_restricted_words(self):
         pass
+    def undo_last_move(self):
+        if self.game_history:
+            state = self.game_history.pop()
+            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
+            self.switch_player()
+        else:
+            print("No moves to undo.")
+
+    def redo_last_move(self):
+        if self.redo_stack:
+            state = self.redo_stack.pop()
+            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
+            self.switch_player()
+        else:
+            print("No moves to redo.")
+
+    def use_power_up(self, power_up):
+        if power_up in self.power_ups[self.current_player]:
+            self.power_ups[self.current_player].remove(power_up)
+        else:
+            print("Power-up not available.")
+
+    def challenge_word(self, word):
+        if word in self.word_list:
+            print("Challenge unsuccessful.")
+            self.challenges[self.current_player] -= 1
+        else:
+            print("Challenge successful.")
+            self.scores[self.current_player] += 20
+            self.challenge_success[self.current_player] += 1
+
+    def apply_difficulty(self):
+        if self.difficulty == "Hard":
+            self.current_difficulty = 3
+        elif self.difficulty == "Easy":
+            self.current_difficulty = 1
+
+    def start_game(self):
+        print("Starting game...")
+        while not self.is_game_over():
+            self.display_board()
+            self.display_tiles()
+            word = input(f"{self.current_player}, enter your word: ").upper()
+            row = int(input("Enter the row: "))
+            col = int(input("Enter the column: "))
+            direction = input("Enter direction (H/V): ").upper()
+            if self.place_word(word, row, col, direction):
+                self.calculate_score(word, row, col, direction)
+                print(f"{self.current_player} placed {word} at ({row}, {col})")
+            self.switch_player()
+            self.turns_without_progress += 1
+            self.check_passes()
+            self.apply_difficulty()
+
+    def check_passes(self):
+        if all(pass_count >= 3 for pass_count in self.passes.values()):
+            print("Game over due to multiple passes.")
+            self.end_game()
+
+    def is_game_over(self):
+        if not any(self.tiles):
+            if all(len(tiles) == 0 for tiles in self.player_tiles.values()):
+                return True
+        return False
+
+    def end_game(self):
+        print("Game over!")
+        winner = max(self.scores, key=self.scores.get)
+        print(f"The winner is {winner} with a score of {self.scores[winner]}")
+
+    def auto_save_game(self):
+        if self.auto_save:
+            with open(self.save_file, "w") as file:
+                json.dump(self.game_history, file)
+
+    def load_game(self):
+        try:
+            with open(self.save_file, "r") as file:
+                self.game_history = json.load(file)
+                self.board, self.player_tiles, self.scores, self.current_player, self.tiles = self.game_history[-1]
+        except FileNotFoundError:
+            print("No save file found.")
+
+    def handle_tournament(self):
+        if self.tournament_mode:
+            pass
+
+    def adjust_time_limits(self):
+        if self.timed_mode:
+            current_time = time.time()
+            for player, limit in self.time_limits.items():
+                if self.round_timer[player] is None:
+                    self.round_timer[player] = current_time
+                elif (current_time - self.round_timer[player]) > limit:
+                    print(f"{player} ran out of time.")
+                    self.end_game()
+
+    def switch_player(self):
+        self.current_player = "Player 1" if self.current_player == "Player 2" else "Player 2"
+
+    def aggressive_strategy(self, board, tiles):
+        return "Aggressive strategy not implemented."
+
+    def defensive_strategy(self, board, tiles):
+        return "Defensive strategy not implemented."
+
+    def balanced_strategy(self, board, tiles):
+        return "Balanced strategy not implemented."
+
+    def double_points_effect(self):
+        pass
+
+    def extra_turn_effect(self):
+        pass
+
+    def tile_swap_effect(self):
+        pass
+
+    def bonus_word_effect(self):
+        pass
+
+    def run(self):
+        self.load_game()
+        self.start_game()
+        self.auto_save_game()
+
 if __name__ == "__main__":
     game = Scrabble()
     game.run()
