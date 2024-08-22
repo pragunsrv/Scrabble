@@ -72,6 +72,7 @@ class Scrabble:
         self.special_tile_placements = []
         self.custom_rules = {"Double Score on Q": True, "No Proper Nouns": False}
         self.history_log = []
+        self.special_tile_usage = {"*": 0}
 
     def create_board(self):
         return [['' for _ in range(15)] for _ in range(15)]
@@ -125,8 +126,9 @@ class Scrabble:
 
     def load_word_list(self):
         return set([
-            "CAT", "DOG", "FISH", "BIRD", "FROG", "HOUSE", "COMPUTER", "PYTHON", "JAVA", "SCRABBLE",
-            "PYTHONIC", "COMPUTERIZED", "EXAMPLE", "PROGRAMMING", "DEVELOPER", "GITHUB", "REPOSITORY"
+            "CAT", "DOG", "FISH", "BIRD", "BEAR", "PANTHER", "LION", "TIGER", "ELEPHANT", "GIRAFFE", "ZEBRA", "HIPPO", "KANGAROO", "KOALA", "WOLF",
+            "PYTHON", "JAVA", "SCRABBLE", "DEVELOPER", "GITHUB", "PROGRAMMING", "EXAMPLE", "COMPUTERIZED", "PYTHONIC", "REPOSITORY", "OCEAN", "MOUNTAIN", 
+            "FOREST", "DESERT", "ISLAND", "JUNGLE", "PLAIN", "RIVER", "LAKE", "POND", "VALLEY", "CAVE", "FOSSIL", "DINO", "ASTEROID", "GALAXY", "UNIVERSE"
         ])
 
     def display_board(self):
@@ -372,6 +374,53 @@ class Scrabble:
     def handle_tournament(self):
         if self.tournament_mode:
             pass
+    def save_game_state(self):
+        self.game_history.append((
+            [row.copy() for row in self.board],
+            self.player_tiles.copy(),
+            self.scores.copy(),
+            self.current_player,
+            self.tiles.copy()
+        ))
+        if len(self.game_history) > 10:
+            self.game_history.pop(0)
+
+    def undo_last_move(self):
+        if self.game_history:
+            state = self.game_history.pop()
+            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
+            self.switch_player()
+        else:
+            print("No moves to undo.")
+
+    def redo_last_move(self):
+        if self.redo_stack:
+            state = self.redo_stack.pop()
+            self.board, self.player_tiles, self.scores, self.current_player, self.tiles = state
+            self.switch_player()
+        else:
+            print("No moves to redo.")
+
+    def use_power_up(self, power_up):
+        if power_up in self.power_ups[self.current_player]:
+            self.power_ups[self.current_player].remove(power_up)
+        else:
+            print("Power-up not available.")
+
+    def challenge_word(self, word):
+        if word in self.word_list:
+            print("Challenge unsuccessful.")
+            self.challenges[self.current_player] -= 1
+        else:
+            print("Challenge successful.")
+            self.scores[self.current_player] += 20
+            self.challenge_success[self.current_player] += 1
+
+    def apply_difficulty(self):
+        if self.difficulty == "Hard":
+            pass
+        elif self.difficulty == "Easy":
+            pass
 
     def adjust_time_limits(self):
         if self.timed_mode:
@@ -382,7 +431,6 @@ class Scrabble:
                 if self.remaining_time[player] <= 0:
                     print(f"{player} ran out of time!")
                     self.end_game()
-Ad
     def switch_player(self):
         self.current_player = "Player 1" if self.current_player == "Player 2" else "Player 2"
 
@@ -396,57 +444,6 @@ Ad
         pass
 
     def handle_restricted_words(self):
-        pass
-
-    def manage_tile_bank(self):
-        pass
-
-    def handle_custom_rules(self):
-        pass
-
-    def manage_ai_opponents(self):
-        pass
-
-    def manage_custom_difficulties(self):
-        pass
-
-    def handle_game_modes(self):
-        pass
-
-    def handle_power_ups(self):
-        pass
-
-    def track_recent_words(self):
-        pass
-
-    def apply_tile_bank(self):
-        pass
-
-    def apply_special_tile_effects(self):
-        pass
-
-    def handle_challenge_count(self):
-        pass
-
-    def manage_restricted_word_list(self):
-        pass
-
-    def manage_tournament_scores(self):
-        pass
-
-    def handle_auto_save(self):
-        pass
-
-    def handle_swap_history(self):
-        pass
-
-    def apply_streak_bonus(self):
-        pass
-
-    def handle_difficulty_adjustments(self):
-        pass
-
-    def manage_timed_mode(self):
         pass
 
 if __name__ == "__main__":
